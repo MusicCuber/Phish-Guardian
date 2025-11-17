@@ -7,27 +7,24 @@ import re
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="PhishGuardian AI", page_icon="🛡️")
-st.title("Hello, PhishGuardian 🛡️")
-st.write("Powered by Google Gemini 2.5 (Server-Side)")
+st.title("PhishGuardian 🛡️")
+st.write("This website is powered by Gemini 2.5")
 
-# --- API KEY LOADING (SECURE) ---
-# Instead of asking the user, we load it from the safe secrets file
+# --- API ---
 try:
     api_key = st.secrets["GOOGLE_API_KEY"]
 except FileNotFoundError:
-    st.error("⚠️ Secrets file not found. Please set up your API key.")
+    st.error("Secrets file not found. Please set up your API key.")
     st.stop()
 except KeyError:
-    st.error("⚠️ API Key not found in secrets. Make sure you named it GOOGLE_API_KEY.")
+    st.error("API Key not found in secrets. Make sure you named it GOOGLE_API_KEY.")
     st.stop()
 
-# --- THE AI FUNCTION ---
 # --- THE AI FUNCTION (Updated for Seniors) ---
 def analyze_with_gemini(email_content, key):
     try:
         client = genai.Client(api_key=key)
         
-        # We changed the prompt to be "Senior Friendly"
         prompt_text = f"""
         You are a helpful, protective security assistant looking after a senior citizen. 
         Analyze this email for scams.
@@ -59,6 +56,7 @@ def analyze_with_gemini(email_content, key):
     except Exception as e:
         st.error(f"AI Error: {e}")
         return None
+
 # --- MAIN APP LOGIC ---
 email_text = st.text_area("Paste your email here:")
 uploaded_file = st.file_uploader("Upload an email file", type=["txt", "eml"])
@@ -66,33 +64,55 @@ uploaded_file = st.file_uploader("Upload an email file", type=["txt", "eml"])
 if st.button("Analyze"):
     text = None
     
-    # File Processing
+    # --- STEP 1: CHECK FILE UPLOAD ---
     if uploaded_file is not None:
-        filename = uploaded_file.name
-        if filename.endswith(".txt"):
-            text = uploaded_file.read().decode("utf-8", errors="ignore")
-        elif filename.endswith(".eml"):
-            msg = email.message_from_bytes(uploaded_file.read())
-            if msg.is_multipart():
-                for part in msg.walk():
-                    if part.get_content_type() == "text/plain":
-                        text = part.get_payload(decode=True).decode("utf-8", errors="ignore")
+        # Convert to lowercase to handle .TXT or .EML
+        filename = uploaded_file.name.lower()
+        
+        try:
+            if filename.endswith(".txt"):
+                text = uploaded_file.read().decode("utf-8", errors="ignore")
+                
+            elif filename.endswith(".eml"):
+                msg = email.message_from_bytes(uploaded_file.read())
+                
+                if msg.is_multipart():
+                    for part in msg.walk():
+                        # Find the first text part and stop
+                        if part.get_content_type() == "text/plain":
+                            payload = part.get_payload(decode=True)
+                            if payload:
+                                text = payload.decode("utf-8", errors="ignore")
+                                break # Stop looping once we have the body
+                else:
+                    # Handle non-multipart emails
+                    payload = msg.get_payload(decode=True)
+                    if payload:
+                        text = payload.decode("utf-8", errors="ignore")
             else:
-                text = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
-    elif email_text.strip():
+                st.error("⚠️ File type not supported. Please upload a .txt or .eml file.")
+                
+        except Exception as e:
+            st.error(f"Error reading file: {e}")
+
+    # --- STEP 2: CHECK TEXT BOX (Fallback) ---
+    # Only check the box if we didn't get text from a file yet
+    if text is None and email_text.strip():
         text = email_text.strip()
 
-    # Analysis
+    # --- STEP 3: EXECUTE AI ---
     if text:
-        st.info("🤖 Gemini 2.5 is analyzing... please wait.")
+        st.info("🤖 PhishGuardian is analyzing... please wait.")
+        
+        # Call your AI function here
         result = analyze_with_gemini(text, api_key)
         
         if result:
+            # ... (Your existing code to display results) ...
             score = result.get("score", 0)
             reasons = result.get("explanation", [])
-
-            st.progress(score)
             
+            st.progress(score)
             if score <= 35:
                 st.success(f"🟩 Safe (Score: {score}/100)")
             elif score <= 70:
@@ -102,7 +122,6 @@ if st.button("Analyze"):
 
             st.subheader("📝 Simple Explanation:")
             for reason in reasons:
-                # Use "###" to make the text a larger Heading size
-                st.markdown(f" • {reason}")
+                st.markdown(f"### • {reason}")
     else:
-        st.write("Please provide an email to analyze.")
+        st.warning("⚠️ Please paste an email text or upload a valid file to analyze.")
