@@ -1,102 +1,88 @@
 import streamlit as st
 import email
-st.title("Hello, PhishGuardian 👋") #makes the title size
-st.write("This is my first Streamlit app.") #text normal
+from openai import OpenAI
+import json
 
-#Core feature #1: Paste or Upload Email
-email_text = st.text_area("Paste your email here:") #text_area is text box with "paste your email here" right on top of it
+# 1. CONFIGURATION
+st.set_page_config(page_title="PhishGuardian AI", page_icon="🛡️")
+st.title("Hello, PhishGuardian 🛡️")
+st.write("AI-Powered Phishing Detection")
+
+# 2. SIDEBAR INPUT
+api_key = st.sidebar.text_input("Enter OpenAI API Key", type="password")
+
+# 3. DEFINE THE AI FUNCTION
+def analyze_with_ai(email_content, key):
+    client = OpenAI(api_key=key)
+    
+    # The instructions for the AI
+    prompt = f"""
+    You are a cybersecurity expert. Analyze the following email for phishing risks.
+    Email: "{email_content}"
+    Return a raw JSON with:
+    1. "score": 0 (Safe) to 100 (Dangerous).
+    2. "explanation": list of strings explaining why.
+    """
+
+    try:
+        # The API Call
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Output only valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        # Parse the result
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        st.error(f"Error: {e}")
+        return None
+
+# 4. USER INPUTS
+email_text = st.text_area("Paste your email here:")
 uploaded_file = st.file_uploader("Upload an email file", type=["txt", "eml"])
-safetyNumber = 50
-if st.button("Analyze"): #if the button is clicked on
-    text = None
-    if uploaded_file is not None:
-        filename = uploaded_file.name
-        if filename.endswith(".txt"):
-            st.write("file ends with .txt")
-            if uploaded_file is not None:
+
+# 5. BUTTON CLICK LOGIC
+if st.button("Analyze"):
+    if not api_key:
+        st.warning("⚠️ Please enter your API Key in the sidebar.")
+    else:
+        text = None
+        
+        # Handle File Uploads
+        if uploaded_file is not None:
+            filename = uploaded_file.name
+            if filename.endswith(".txt"):
                 text = uploaded_file.read().decode("utf-8", errors="ignore")
-            else:
-                st.write("Looks like the file is empty. Please try again. :(")
-        elif filename.endswith(".eml"):
-            st.write("file ends with .eml")
-            if uploaded_file is not None:
+            elif filename.endswith(".eml"):
                 msg = email.message_from_bytes(uploaded_file.read())
-                subject = msg.get("subject", "(No Subject)")
-                st.write("Subject: " + subject)
-                text = ""
                 if msg.is_multipart():
                     for part in msg.walk():
                         if part.get_content_type() == "text/plain":
-                            txt = part.get_payload(decode=True)
-                            if txt:
-                                text += txt.decode("utf-8", errors="ignore")
-                if text is not None:
-                    if isinstance(text, str):
-                        text = text
-                    else:
-                        st.write("Couldn't read file. Please try again. :(")
+                            text = part.get_payload(decode=True).decode("utf-8", errors="ignore")
                 else:
-                    st.write("Looks like the file is empty. Please try again. :(")
+                    text = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
+        # Handle Text Paste
+        elif email_text.strip():
+            text = email_text.strip()
+
+        # Run Analysis
+        if text:
+            st.info("Analyzing...")
+            result = analyze_with_ai(text, api_key)
+            
+            if result:
+                score = result["score"]
+                st.progress(score)
+                
+                if score < 35: st.success(f"Safe (Score: {score})")
+                elif score < 70: st.warning(f"Caution (Score: {score})")
+                else: st.error(f"Dangerous (Score: {score})")
+                
+                st.write("### Reasons:")
+                for reason in result["explanation"]:
+                    st.write(f"- {reason}")
         else:
-            st.write("File type not accepted. Please drop a .txt or .eml file.")
-    elif email_text.strip():
-        st.write("Analyzing the email that you pasted in...")
-        text = email_text.strip()
-    else:
-        st.write("Please paste in a email or upload the email file")
-    if text:
-        st.write("Contents of the email are:")
-        st.write(text) #line gets printed on here
- 
-
-        #Check 1. Keywords
-        danger_rules = [
-            # Urgent language
-            {"keyword": "urgent", "score": 15, "message": "The email uses urgent language to pressure you."},
-            {"keyword": "immediat", "score": 15, "message": "The email tells you to act immediately, which is a common scam tactic."},
-            {"keyword": "suspend", "score": 15, "message": "The email threatens suspension of your account."},
-            {"keyword": "verif", "score": 15, "message": "The email asks you to verify personal information."},
-            {"keyword": "account will be closed", "score": 20, "message": "The email says your account will be closed soon, which is a scare tactic."},
-
-            # Attachments
-            {"keyword": ".exe", "score": 25, "message": "The email references an .exe file, which is unsafe to open."},
-            {"keyword": ".zip", "score": 20, "message": "The email contains a .zip file, which could hide malware."},
-            {"keyword": ".scr", "score": 25, "message": "The email contains a .scr file, which is unsafe."},
-            {"keyword": ".js", "score": 25, "message": "The email contains a .js file, which could run malicious code."},
-
-            # URL tricks
-            {"keyword": "http://", "score": 20, "message": "The email uses a non-secure link (http)."},
-            {"keyword": ".xyz", "score": 20, "message": "The email links to a suspicious domain (.xyz)."},
-            {"keyword": ".top", "score": 20, "message": "The email links to a suspicious domain (.top)."},
-        ]
-        email_lower = text.lower() #make it case insensitive
-        danger_score = 0
-        explanations = []
-        for rule in danger_rules:
-            if rule["keyword"] in email_lower:
-                danger_score += rule["score"]
-                explanations.append(rule["message"])
-
-
-
-
-            
-            
-        #Core feature #2: Risk Meter (0-100)    
-        def result(safetyNumber):
-            progress = st.progress(safetyNumber)
-            if safetyNumber <= 35:
-                st.markdown("🟩 **Safe email** (Score: " + str(safetyNumber) + ")")
-            elif safetyNumber <= 70:
-                st.markdown("🟨 **Caution** (Score: " + str(safetyNumber) + ")")
-            elif safetyNumber <= 100:
-                st.markdown("🟥 **Dangerous email** (Score: " + str(safetyNumber) + ")")
-            else:
-                st.markdown("🟥 **EXTREMELY Dangerous email** (Score: " + str(safetyNumber) + ")")
-            
-
-
-        print(result(danger_score))
-        st.markdown("**Explanations and Reasons below:**")
-        for reason in explanations:
-            st.write(reason)
+            st.error("No email content found to analyze.")
