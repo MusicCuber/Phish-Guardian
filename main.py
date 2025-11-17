@@ -4,7 +4,30 @@ from google import genai
 from google.genai import types
 import json
 import re
+st.title("Gemini Model Debugger 🛠️")
 
+# Input your key
+api_key = st.text_input("Enter Google API Key", type="password")
+
+if st.button("List Available Models"):
+    if not api_key:
+        st.warning("Please enter a key first.")
+    else:
+        try:
+            client = genai.Client(api_key=api_key)
+            
+            # Get the list of models
+            st.write("Attempting to fetch models...")
+            models = list(client.models.list())
+            
+            st.success("Success! Here are your available models:")
+            
+            # Print just the names so it's easy to read
+            for m in models:
+                st.code(m.name)
+                
+        except Exception as e:
+            st.error(f"Error fetching models: {e}")
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="PhishGuardian AI", page_icon="🛡️")
 st.title("Hello, PhishGuardian 🛡️")
