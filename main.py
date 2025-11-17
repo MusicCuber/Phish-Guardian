@@ -1,57 +1,67 @@
 import streamlit as st
 import email
-from openai import OpenAI
+import google.generativeai as genai
 import json
+import re
 
-# 1. CONFIGURATION
+# --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="PhishGuardian AI", page_icon="🛡️")
 st.title("Hello, PhishGuardian 🛡️")
-st.write("AI-Powered Phishing Detection")
+st.write("Powered by Google Gemini (Free Tier)")
 
-# 2. SIDEBAR INPUT
-api_key = st.sidebar.text_input("Enter OpenAI API Key", type="password")
+# --- SIDEBAR FOR API KEY ---
+api_key = st.sidebar.text_input("Enter Google Gemini API Key", type="password")
 
-# 3. DEFINE THE AI FUNCTION
-def analyze_with_ai(email_content, key):
-    client = OpenAI(api_key=key)
-    
-    # The instructions for the AI
-    prompt = f"""
-    You are a cybersecurity expert. Analyze the following email for phishing risks.
-    Email: "{email_content}"
-    Return a raw JSON with:
-    1. "score": 0 (Safe) to 100 (Dangerous).
-    2. "explanation": list of strings explaining why.
-    """
-
+# --- THE AI FUNCTION ---
+def analyze_with_gemini(email_content, key):
     try:
-        # The API Call
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Output only valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            response_format={ "type": "json_object" }
-        )
-        # Parse the result
-        return json.loads(response.choices[0].message.content)
+        # 1. Configure the Google AI with your key
+        genai.configure(api_key=key)
+        
+        # 2. Select the model (Gemini 1.5 Flash is fast and free)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # 3. The Prompt
+        prompt = f"""
+        You are a cybersecurity expert. Analyze this email for phishing risks.
+        
+        Email Content:
+        "{email_content}"
+        
+        Respond with valid JSON only. No markdown formatting. Use this exact structure:
+        {{
+            "score": <number 0-100>,
+            "explanation": ["reason 1", "reason 2", "reason 3"]
+        }}
+        """
+
+        # 4. Send to AI
+        response = model.generate_content(prompt)
+        
+        # 5. Clean the text (Gemini sometimes puts ```json ... ``` wrappers)
+        text = response.text
+        # This regex removes the markdown code blocks if they exist
+        clean_text = re.sub(r"```json|```", "", text).strip()
+        
+        return json.loads(clean_text)
+        
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"AI Error: {e}")
         return None
 
-# 4. USER INPUTS
+# --- MAIN APP LOGIC ---
+
+# Core feature #1: Input
 email_text = st.text_area("Paste your email here:")
 uploaded_file = st.file_uploader("Upload an email file", type=["txt", "eml"])
 
-# 5. BUTTON CLICK LOGIC
 if st.button("Analyze"):
     if not api_key:
-        st.warning("⚠️ Please enter your API Key in the sidebar.")
+        st.warning("⚠️ Please enter your Google Gemini API Key in the sidebar.")
     else:
         text = None
         
-        # Handle File Uploads
+        # File Processing Logic
         if uploaded_file is not None:
             filename = uploaded_file.name
             if filename.endswith(".txt"):
@@ -64,25 +74,31 @@ if st.button("Analyze"):
                             text = part.get_payload(decode=True).decode("utf-8", errors="ignore")
                 else:
                     text = msg.get_payload(decode=True).decode("utf-8", errors="ignore")
-        # Handle Text Paste
         elif email_text.strip():
             text = email_text.strip()
 
-        # Run Analysis
+        # AI Analysis Logic
         if text:
-            st.info("Analyzing...")
-            result = analyze_with_ai(text, api_key)
+            st.info("🤖 Gemini is analyzing... please wait.")
+            result = analyze_with_gemini(text, api_key)
             
             if result:
-                score = result["score"]
+                score = result.get("score", 0)
+                reasons = result.get("explanation", [])
+
                 st.progress(score)
                 
-                if score < 35: st.success(f"Safe (Score: {score})")
-                elif score < 70: st.warning(f"Caution (Score: {score})")
-                else: st.error(f"Dangerous (Score: {score})")
-                
-                st.write("### Reasons:")
-                for reason in result["explanation"]:
+                if score <= 35:
+                    st.success(f"🟩 Safe (Score: {score}/100)")
+                elif score <= 70:
+                    st.warning(f"🟨 Caution (Score: {score}/100)")
+                else:
+                    st.error(f"🟥 DANGEROUS (Score: {score}/100)")
+
+                st.subheader("📝 Analysis Report:")
+                for reason in reasons:
                     st.write(f"- {reason}")
+            else:
+                st.error("Could not analyze email. Please try again.")
         else:
-            st.error("No email content found to analyze.")
+            st.write("Please provide an email to analyze.")
