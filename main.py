@@ -4,34 +4,11 @@ from google import genai
 from google.genai import types
 import json
 import re
-st.title("Gemini Model Debugger 🛠️")
 
-# Input your key
-api_key = st.text_input("Enter Google API Key", type="password")
-
-if st.button("List Available Models"):
-    if not api_key:
-        st.warning("Please enter a key first.")
-    else:
-        try:
-            client = genai.Client(api_key=api_key)
-            
-            # Get the list of models
-            st.write("Attempting to fetch models...")
-            models = list(client.models.list())
-            
-            st.success("Success! Here are your available models:")
-            
-            # Print just the names so it's easy to read
-            for m in models:
-                st.code(m.name)
-                
-        except Exception as e:
-            st.error(f"Error fetching models: {e}")
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="PhishGuardian AI", page_icon="🛡️")
 st.title("Hello, PhishGuardian 🛡️")
-st.write("Powered by Google Gemini (v1 API)")
+st.write("Powered by Google Gemini 2.5")
 
 # --- SIDEBAR FOR API KEY ---
 api_key = st.sidebar.text_input("Enter Google Gemini API Key", type="password")
@@ -39,8 +16,7 @@ api_key = st.sidebar.text_input("Enter Google Gemini API Key", type="password")
 # --- THE AI FUNCTION ---
 def analyze_with_gemini(email_content, key):
     try:
-        # 1. Initialize the Client (New SDK Style)
-        # We don't need to specify http_options for v1; it is the default.
+        # 1. Initialize the Client
         client = genai.Client(api_key=key)
         
         # 2. The Prompt
@@ -57,18 +33,17 @@ def analyze_with_gemini(email_content, key):
         }}
         """
 
-        # 3. Send to AI
-        # 'gemini-1.5-flash' is the stable, fast model for v1
+        # 3. Send to AI (UPDATED TO GEMINI 2.5)
+        # We use 'gemini-2.5-flash' which is in your list
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-2.5-flash',
             contents=prompt_text,
             config=types.GenerateContentConfig(
-                response_mime_type='application/json' # Forces JSON output natively
+                response_mime_type='application/json'
             )
         )
         
         # 4. Parse the response
-        # The new SDK with response_mime_type returns a clean JSON string in .text
         return json.loads(response.text)
         
     except Exception as e:
@@ -104,7 +79,7 @@ if st.button("Analyze"):
 
         # Analysis
         if text:
-            st.info("🤖 Gemini is analyzing... please wait.")
+            st.info("🤖 Gemini 2.5 is analyzing... please wait.")
             result = analyze_with_gemini(text, api_key)
             
             if result:
