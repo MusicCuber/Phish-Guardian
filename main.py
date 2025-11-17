@@ -19,7 +19,8 @@ def analyze_with_gemini(email_content, key):
         genai.configure(api_key=key)
         
         # 2. Select the model (Gemini 1.5 Flash is fast and free)
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Use the specific stable version
+        model = genai.GenerativeModel('gemini-1.5-flash-001')
         
         # 3. The Prompt
         prompt = f"""
