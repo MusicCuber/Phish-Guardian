@@ -148,6 +148,6 @@ if st.button("Analyze"):
 
             st.subheader("📝 Simple Explanation:")
             for reason in reasons:
-                st.markdown(f"### • {reason}")
+                st.markdown(f" • {reason}")
     else:
         st.warning("⚠️ Please paste an email text or upload a valid file to analyze.")
