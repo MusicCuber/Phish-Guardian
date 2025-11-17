@@ -65,8 +65,11 @@ if st.button("Analyze"):
     text = None
     
     # --- STEP 1: CHECK FILE UPLOAD ---
+    # --- STEP 1: CHECK FILE UPLOAD ---
     if uploaded_file is not None:
-        # Convert to lowercase to handle .TXT or .EML
+        # 1. Reset the file pointer to the beginning (Fixes "empty file" errors)
+        uploaded_file.seek(0)
+        
         filename = uploaded_file.name.lower()
         
         try:
@@ -74,21 +77,44 @@ if st.button("Analyze"):
                 text = uploaded_file.read().decode("utf-8", errors="ignore")
                 
             elif filename.endswith(".eml"):
-                msg = email.message_from_bytes(uploaded_file.read())
+                # Read the file bytes
+                bytes_content = uploaded_file.read()
+                msg = email.message_from_bytes(bytes_content)
+                
+                # Variable to hold the text content
+                extracted_text = ""
                 
                 if msg.is_multipart():
+                    # Iterate through all parts of the email
                     for part in msg.walk():
-                        # Find the first text part and stop
-                        if part.get_content_type() == "text/plain":
+                        content_type = part.get_content_type()
+                        content_disposition = str(part.get("Content-Disposition"))
+                        
+                        # Skip attachments, look for body text
+                        if "attachment" not in content_disposition:
                             payload = part.get_payload(decode=True)
                             if payload:
-                                text = payload.decode("utf-8", errors="ignore")
-                                break # Stop looping once we have the body
+                                decoded_text = payload.decode("utf-8", errors="ignore")
+                                
+                                # Prefer Plain Text, but accept HTML if that's all we have
+                                if content_type == "text/plain":
+                                    extracted_text = decoded_text
+                                    break # Best case found, stop searching
+                                elif content_type == "text/html" and not extracted_text:
+                                    # Save HTML as a backup, but keep looking for plain text
+                                    extracted_text = decoded_text
+                    
+                    text = extracted_text
                 else:
-                    # Handle non-multipart emails
+                    # Non-multipart email (simple)
                     payload = msg.get_payload(decode=True)
                     if payload:
                         text = payload.decode("utf-8", errors="ignore")
+
+                # Debugging: If still empty, warn the user
+                if not text:
+                    st.error("⚠️ Could not find readable text in this EML file. It might be an image-only email.")
+
             else:
                 st.error("⚠️ File type not supported. Please upload a .txt or .eml file.")
                 
