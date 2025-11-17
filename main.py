@@ -103,6 +103,6 @@ if st.button("Analyze"):
             st.subheader("📝 Simple Explanation:")
             for reason in reasons:
                 # Use "###" to make the text a larger Heading size
-                st.markdown(f"### • {reason}")
+                st.markdown(f" • {reason}")
     else:
         st.write("Please provide an email to analyze.")
