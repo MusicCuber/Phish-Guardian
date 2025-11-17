@@ -20,7 +20,7 @@ def analyze_with_gemini(email_content, key):
         
         # 2. Select the model (Gemini 1.5 Flash is fast and free)
         # Use the specific stable version
-        model = genai.GenerativeModel('gemini-1.5-flash-001')
+        model = genai.GenerativeModel('gemini-pro')
         
         # 3. The Prompt
         prompt = f"""
