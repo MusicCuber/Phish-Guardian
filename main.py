@@ -20,27 +20,34 @@ except KeyError:
     st.error("API Key not found in secrets. Make sure you named it GOOGLE_API_KEY.")
     st.stop()
 
-# --- THE AI FUNCTION (Updated for Seniors) ---
+# --- THE AI FUNCTION ---
 def analyze_with_gemini(email_content, key):
     try:
         client = genai.Client(api_key=key)
         
+        # UPDATED PROMPT: Forces "Chain of Thought" reasoning
         prompt_text = f"""
-        You are a helpful, protective security assistant looking after a senior citizen. 
-        Analyze this email for scams.
+        You are a helpful security assistant for a senior citizen.
         
-        Email Content:
+        Analyze this email:
         "{email_content}"
         
-        Your Goal: Explain the danger in simple, plain English.
-        - STRICTLY FORBIDDEN: Technical jargon (e.g., "SMTP", "DKIM", "phishing vector", "spoofing").
-        - INSTEAD USE: Simple concepts (e.g., "The sender is pretending to be your bank," "They are trying to scare you into clicking," "The web link looks strange").
-        - Tone: Patient, clear, and protective.
+        ---
+        SCORING RULES:
+        - If the email is GENUINE/SAFE (even if it's about security/2FA), the score MUST be between 0 and 10.
+        - If it is a SCAM/PHISHING, the score should be 80-100.
+        - If uncertain/spam, use 40-60.
+        
+        Your Goal:
+        1. First, decide if it is safe or not.
+        2. Then, write 3 simple bullet points explaining why.
+        3. Finally, assign the score based on your decision.
+        ---
         
         Respond with valid JSON only. No markdown. Use this exact structure:
         {{
-            "score": <number 0-100>,
-            "explanation": ["Simple reason 1", "Simple reason 2", "Simple reason 3"]
+            "explanation": ["Reason 1", "Reason 2", "Reason 3"],
+            "score": <number 0-100>
         }}
         """
 
