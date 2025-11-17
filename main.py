@@ -1,13 +1,14 @@
 import streamlit as st
 import email
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 import re
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="PhishGuardian AI", page_icon="🛡️")
 st.title("Hello, PhishGuardian 🛡️")
-st.write("Powered by Google Gemini (Free Tier)")
+st.write("Powered by Google Gemini (v1 API)")
 
 # --- SIDEBAR FOR API KEY ---
 api_key = st.sidebar.text_input("Enter Google Gemini API Key", type="password")
@@ -15,15 +16,12 @@ api_key = st.sidebar.text_input("Enter Google Gemini API Key", type="password")
 # --- THE AI FUNCTION ---
 def analyze_with_gemini(email_content, key):
     try:
-        # 1. Configure the Google AI with your key
-        genai.configure(api_key=key)
+        # 1. Initialize the Client (New SDK Style)
+        # We don't need to specify http_options for v1; it is the default.
+        client = genai.Client(api_key=key)
         
-        # 2. Select the model (Gemini 1.5 Flash is fast and free)
-        # Use the specific stable version
-        model = genai.GenerativeModel('gemini-pro')
-        
-        # 3. The Prompt
-        prompt = f"""
+        # 2. The Prompt
+        prompt_text = f"""
         You are a cybersecurity expert. Analyze this email for phishing risks.
         
         Email Content:
@@ -36,15 +34,19 @@ def analyze_with_gemini(email_content, key):
         }}
         """
 
-        # 4. Send to AI
-        response = model.generate_content(prompt)
+        # 3. Send to AI
+        # 'gemini-1.5-flash' is the stable, fast model for v1
+        response = client.models.generate_content(
+            model='gemini-1.5-flash',
+            contents=prompt_text,
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json' # Forces JSON output natively
+            )
+        )
         
-        # 5. Clean the text (Gemini sometimes puts ```json ... ``` wrappers)
-        text = response.text
-        # This regex removes the markdown code blocks if they exist
-        clean_text = re.sub(r"```json|```", "", text).strip()
-        
-        return json.loads(clean_text)
+        # 4. Parse the response
+        # The new SDK with response_mime_type returns a clean JSON string in .text
+        return json.loads(response.text)
         
     except Exception as e:
         st.error(f"AI Error: {e}")
@@ -52,7 +54,6 @@ def analyze_with_gemini(email_content, key):
 
 # --- MAIN APP LOGIC ---
 
-# Core feature #1: Input
 email_text = st.text_area("Paste your email here:")
 uploaded_file = st.file_uploader("Upload an email file", type=["txt", "eml"])
 
@@ -62,7 +63,7 @@ if st.button("Analyze"):
     else:
         text = None
         
-        # File Processing Logic
+        # File Processing
         if uploaded_file is not None:
             filename = uploaded_file.name
             if filename.endswith(".txt"):
@@ -78,7 +79,7 @@ if st.button("Analyze"):
         elif email_text.strip():
             text = email_text.strip()
 
-        # AI Analysis Logic
+        # Analysis
         if text:
             st.info("🤖 Gemini is analyzing... please wait.")
             result = analyze_with_gemini(text, api_key)
