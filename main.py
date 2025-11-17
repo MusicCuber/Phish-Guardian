@@ -22,20 +22,28 @@ except KeyError:
     st.stop()
 
 # --- THE AI FUNCTION ---
+# --- THE AI FUNCTION (Updated for Seniors) ---
 def analyze_with_gemini(email_content, key):
     try:
         client = genai.Client(api_key=key)
         
+        # We changed the prompt to be "Senior Friendly"
         prompt_text = f"""
-        You are a cybersecurity expert. Analyze this email for phishing risks.
+        You are a helpful, protective security assistant looking after a senior citizen. 
+        Analyze this email for scams.
         
         Email Content:
         "{email_content}"
         
-        Respond with valid JSON only. No markdown formatting. Use this exact structure:
+        Your Goal: Explain the danger in simple, plain English.
+        - STRICTLY FORBIDDEN: Technical jargon (e.g., "SMTP", "DKIM", "phishing vector", "spoofing").
+        - INSTEAD USE: Simple concepts (e.g., "The sender is pretending to be your bank," "They are trying to scare you into clicking," "The web link looks strange").
+        - Tone: Patient, clear, and protective.
+        
+        Respond with valid JSON only. No markdown. Use this exact structure:
         {{
             "score": <number 0-100>,
-            "explanation": ["reason 1", "reason 2", "reason 3"]
+            "explanation": ["Simple reason 1", "Simple reason 2", "Simple reason 3"]
         }}
         """
 
@@ -51,7 +59,6 @@ def analyze_with_gemini(email_content, key):
     except Exception as e:
         st.error(f"AI Error: {e}")
         return None
-
 # --- MAIN APP LOGIC ---
 email_text = st.text_area("Paste your email here:")
 uploaded_file = st.file_uploader("Upload an email file", type=["txt", "eml"])
@@ -93,8 +100,9 @@ if st.button("Analyze"):
             else:
                 st.error(f"🟥 DANGEROUS (Score: {score}/100)")
 
-            st.subheader("📝 Analysis Report:")
+            st.subheader("📝 Simple Explanation:")
             for reason in reasons:
-                st.write(f"- {reason}")
+                # Use "###" to make the text a larger Heading size
+                st.markdown(f"### • {reason}")
     else:
         st.write("Please provide an email to analyze.")
