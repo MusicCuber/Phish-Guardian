@@ -1,3 +1,4 @@
+# --- IMPORTS ---
 import streamlit as st
 import email
 from google import genai
@@ -25,7 +26,6 @@ def analyze_with_gemini(email_content, key):
     try:
         client = genai.Client(api_key=key)
         
-        # UPDATED PROMPT: Forces "Chain of Thought" reasoning
         prompt_text = f"""
         You are a helpful security assistant for a senior citizen.
         
@@ -72,23 +72,17 @@ if st.button("Analyze"):
     text = None
     
     # --- STEP 1: CHECK FILE UPLOAD ---
-    # --- STEP 1: CHECK FILE UPLOAD ---
     if uploaded_file is not None:
-        # 1. Reset the file pointer to the beginning (Fixes "empty file" errors)
         uploaded_file.seek(0)
-        
         filename = uploaded_file.name.lower()
-        
         try:
             if filename.endswith(".txt"):
                 text = uploaded_file.read().decode("utf-8", errors="ignore")
                 
             elif filename.endswith(".eml"):
-                # Read the file bytes
                 bytes_content = uploaded_file.read()
                 msg = email.message_from_bytes(bytes_content)
                 
-                # Variable to hold the text content
                 extracted_text = ""
                 
                 if msg.is_multipart():
@@ -106,19 +100,17 @@ if st.button("Analyze"):
                                 # Prefer Plain Text, but accept HTML if that's all we have
                                 if content_type == "text/plain":
                                     extracted_text = decoded_text
-                                    break # Best case found, stop searching
+                                    break
                                 elif content_type == "text/html" and not extracted_text:
                                     # Save HTML as a backup, but keep looking for plain text
                                     extracted_text = decoded_text
                     
                     text = extracted_text
                 else:
-                    # Non-multipart email (simple)
                     payload = msg.get_payload(decode=True)
                     if payload:
                         text = payload.decode("utf-8", errors="ignore")
-
-                # Debugging: If still empty, warn the user
+                        
                 if not text:
                     st.error("⚠️ Could not find readable text in this EML file. It might be an image-only email.")
 
@@ -129,19 +121,15 @@ if st.button("Analyze"):
             st.error(f"Error reading file: {e}")
 
     # --- STEP 2: CHECK TEXT BOX (Fallback) ---
-    # Only check the box if we didn't get text from a file yet
     if text is None and email_text.strip():
         text = email_text.strip()
 
     # --- STEP 3: EXECUTE AI ---
     if text:
-        st.info("🤖 PhishGuardian is analyzing... please wait.")
-        
-        # Call your AI function here
+        st.info("PhishGuardian is analyzing... please wait.")
         result = analyze_with_gemini(text, api_key)
         
         if result:
-            # ... (Your existing code to display results) ...
             score = result.get("score", 0)
             reasons = result.get("explanation", [])
             
@@ -153,8 +141,8 @@ if st.button("Analyze"):
             else:
                 st.error(f"🟥 DANGEROUS (Score: {score}/100)")
 
-            st.subheader("📝 Simple Explanation:")
+            st.subheader("Simple Explanation:")
             for reason in reasons:
                 st.markdown(f" • {reason}")
     else:
-        st.warning("⚠️ Please paste an email text or upload a valid file to analyze.")
+        st.warning("Please paste an email text or upload a valid file to analyze.")
