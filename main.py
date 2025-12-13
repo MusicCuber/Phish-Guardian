@@ -8,7 +8,7 @@ import re
 
 # --- PAGE CONFIGURATION ---
 st.set_page_config(page_title="PhishGuardian AI", page_icon="🛡️")
-st.title("PhishGuardian 🛡️")
+st.title("PhishGuardian")
 st.write("This website is powered by Gemini 2.5")
 
 # --- API ---
@@ -112,10 +112,10 @@ if st.button("Analyze"):
                         text = payload.decode("utf-8", errors="ignore")
                         
                 if not text:
-                    st.error("⚠️ Could not find readable text in this EML file. It might be an image-only email.")
+                    st.error("Could not find readable text in this EML file. It might be an image-only email.")
 
             else:
-                st.error("⚠️ File type not supported. Please upload a .txt or .eml file.")
+                st.error("File type not supported. Please upload a .txt or .eml file.")
                 
         except Exception as e:
             st.error(f"Error reading file: {e}")
